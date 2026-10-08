@@ -89,7 +89,7 @@ $L -d .loop stop --now        # stop now, killing the round (its files stay on d
 | `stop [--now]` | Stops after the current round; `--now` kills the round. |
 | `status` | Running or not, stop requested, the last 15 log lines in colour. |
 | `follow` | Live view: the loop log in colour and, under the running round, its last events (`FOLLOW_LINES=0` for the log only). |
-| `watch` | Streams the running round's transcript: thinking, messages, tool calls, results, subagents. Switches to each new round's session by itself. |
+| `watch` | Streams the loop log's new lines (bold magenta) and the running round's transcript: thinking (grey), messages (green), tool calls (yellow, input in cyan, `(bg)` when backgrounded), results with their duration and first lines (dim, errors in red), subagents marked `[sub]`. Switches to each new round's session by itself, skipping other Claude sessions in the same folder. `WATCH_LINES` sets the history shown at start, `WATCH_THINKING=0` hides thinking. |
 | `commits [-r N] [-n N] [--once]` | The work tree's commits grouped by round (from the loop log), coloured by type (feat, fix, perf, test, refactor, docs/chore), with relative ages and sizes. |
 | `tmux` | A tmux session: `watch` on the left, `follow` (log only) top right, `commits -r 3` bottom right. Reattaches if it exists. Only displays: it never starts or stops the loop. |
 | `inbox [TEXT]` | Appends a dated bullet to INBOX.md, or opens it in `$EDITOR`. |

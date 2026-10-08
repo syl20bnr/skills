@@ -22,7 +22,7 @@
 #   stop [--now]      stop after the current round (--now: kill the round too)
 #   status            running or not, the last rounds, cost
 #   follow            live view: the loop log in colour and the round's last events
-#   watch             stream the running round's transcript (messages, tools, results)
+#   watch             stream the loop log and the running round's transcript in colour
 #   commits [-r N] [-n N] [--once]
 #                     the work tree's commits, grouped by round, refreshing
 #   tmux              a tmux session with watch, follow and commits in three panes
@@ -226,10 +226,17 @@ render_prompt() {
   printf '%s\n' "$p"
 }
 
-# The transcripts of the newest session: the main one and its subagents'.
+# The transcripts of the newest round: the main one and its subagents'.
+# Rounds are named "$NAME round N", which their transcript's first line
+# records; other sessions in the same folder are skipped (the newest session
+# is the fallback).
 transcript_files() {
   local main sid f
-  main="$(ls -t "$PROJECT_DIR"/*.jsonl 2>/dev/null | grep -v '/agent-[^/]*\.jsonl$' | head -1)"
+  main="$(ls -t "$PROJECT_DIR"/*.jsonl 2>/dev/null | grep -v '/agent-[^/]*\.jsonl$' | head -20 |
+    while IFS= read -r f; do
+      head -c 4000 "$f" | head -1 | grep -qF "\"customTitle\":\"$NAME round " && { echo "$f"; break; }
+    done)"
+  [ -n "$main" ] || main="$(ls -t "$PROJECT_DIR"/*.jsonl 2>/dev/null | grep -v '/agent-[^/]*\.jsonl$' | head -1)"
   [ -n "$main" ] || return 0
   sid="$(basename "$main" .jsonl)"
   echo "$main"
@@ -434,30 +441,123 @@ follow_view() {
   done
 }
 
-# Streams the transcript: new events since the last poll (deduplicated by key),
-# with a header whenever a new round's session starts.
+# The watch view's jq program: one coloured line per transcript event, each
+# shown once (deduplicated by uuid). Thinking in dark grey, messages in green,
+# tool calls in yellow with their input in cyan, results dimmed with their
+# duration and first lines, errors in red; subagents' lines are marked [sub].
+WATCH_FILTER='
+def c(code; s): if $color then "\u001b[" + code + "m" + s + "\u001b[0m" else s end;
+def secs: (.timestamp // null) as $t
+  | if ($t | type) == "string" then ($t | sub("\\.[0-9]+"; "") | fromdateiso8601) else null end;
+def hms($s): if $s then ($s | localtime | strftime("%H:%M:%S")) else "--:--:--" end;
+def txt: if type == "string" then .
+  elif type == "array" then map(select(type == "object" and .type == "text") | .text) | join("\n")
+  else tostring end;
+def one: tostring | gsub("\n"; " ⏎ ");
+foreach (inputs | fromjson? | select(.type == "assistant" or .type == "user")) as $l
+  ({started: {}, out: [], seen: {}};
+   .out = []
+   | if ($l.uuid != null and .seen[$l.uuid]) then . else
+   (if $l.uuid != null then .seen[$l.uuid] = true else . end)
+   | ($l | secs) as $now
+   | (hms($now) + (if $l.isSidechain then " [sub]" else "" end)) as $ts
+   | if $l.type == "assistant" then
+       reduce ($l.message.content[]? | select(type == "object")) as $b (.;
+         if $b.type == "thinking" then
+           (if $think then .out += [c("2;90"; $ts + " [think] " + ($b.thinking | one | .[0:300]))] else . end)
+         elif $b.type == "text" then
+           .out += [c("32"; $ts + " [say]   " + $b.text)]
+         elif $b.type == "tool_use" then
+           .started[$b.id] = $now
+           | .out += [c("1;33"; $ts + " [tool]  " + $b.name
+                + (if ($b.input.run_in_background // false) then " (bg)" else "" end))
+              + "  " + c("36"; (($b.input.command // $b.input.file_path // $b.input.pattern
+                   // $b.input.description // $b.input.prompt // "") | one | .[0:220]))]
+         else . end)
+     else
+       reduce ($l.message.content[]? | select(type == "object" and .type == "tool_result")) as $r (.;
+         (.started[$r.tool_use_id] // null) as $t0
+         | (if $t0 and $now then " " + ((($now - $t0) | floor) | tostring) + "s" else "" end) as $dur
+         | (($r.content // "") | txt | split("\n") | map(select(length > 0))) as $lines
+         | .out += [c(if ($r.is_error // false) then "31" else "2;37" end;
+              $ts + " [done]" + $dur + "  " + (($lines[0:2] | join(" ⏎ ")) | .[0:220])
+              + (if ($lines | length) > 2 then "  … +" + ((($lines | length) - 2) | tostring) + " lines" else "" end))]
+         | del(.started[$r.tool_use_id]))
+     end
+   end;
+   .out[])'
+
+# Stops a process and all its descendants (backgrounded pipelines don't get
+# Ctrl-C, and their tails would outlive the view). Parents go first, so no
+# subshell lives to report its children as terminated.
+kill_tree() {
+  local children child
+  children="$(pgrep -P "$1")"
+  kill "$1" 2>/dev/null
+  for child in $children; do kill_tree "$child"; done
+}
+
+# Streams the loop in real time: the loop log's new lines in bold magenta and
+# the running round's transcript (messages, tool calls, results, subagents),
+# switching to each new round's session by itself.
 watch_view() {
-  local cols last="" session="" main fresh key
-  trap 'exit 0' INT TERM
+  local color=false think=false current="" files="" latest now kept added
+  local logpid="" pid=""
+  command -v jq >/dev/null || die "jq is required (brew install jq)."
+  [ -n "$RST" ] && color=true
+  [ "$WATCH_THINKING" = 1 ] && think=true
+  [ -d "$PROJECT_DIR" ] || echo "No transcripts yet in $PROJECT_DIR (waiting for the first round)."
+
+  # start_follower <old files> <new files> <history lines>: old files from
+  # their end (or their last <history lines>), new files from their first
+  # line, all through one jq so each line shows once.
+  start_follower() {
+    (
+      IFS=$'\n'
+      {
+        [ -n "$1" ] && tail -q -n "$3" -F $1 2>/dev/null &
+        [ -n "$2" ] && tail -q -n +1 -F $2 2>/dev/null &
+        wait
+      } | jq -nrR --unbuffered --argjson color "$color" --argjson think "$think" "$WATCH_FILTER"
+    ) &
+    pid=$!
+  }
+  # Waiting on the stopped jobs keeps bash from reporting them as terminated.
+  stop_follower() { [ -n "$pid" ] && { kill_tree "$pid"; wait "$pid" 2>/dev/null; }; pid=""; }
+  stop_all() {
+    stop_follower
+    [ -n "$logpid" ] && { kill_tree "$logpid"; wait "$logpid" 2>/dev/null; }
+    logpid=""
+  }
+  trap 'stop_all; exit 0' INT TERM
+  trap stop_all EXIT
+
   status_view 6; echo
+  (
+    tail -n 0 -F "$SUMMARY" 2>/dev/null | while IFS= read -r line; do
+      printf '%s%s%s%s\n' "$BOLD" "$MAGENTA" "$line" "$RST"
+    done
+  ) &
+  logpid=$!
+
   while :; do
-    cols="$(tput cols 2>/dev/null || echo 120)"
-    main="$(transcript_files | head -1)"
-    if [ -n "$main" ] && [ "$main" != "$session" ]; then
-      session="$main"
-      printf '%s=== session %s ===%s\n' "$MAGENTA" "$(basename "$main" .jsonl)" "$RST"
-      if [ -z "$last" ]; then
-        fresh="$(events "$WATCH_THINKING" | tail -n "$WATCH_LINES")"
-      else
-        fresh="$(events "$WATCH_THINKING" | awk -F'\t' -v k="$last" '$1 > k')"
+    now="$(transcript_files)"
+    latest="$(printf '%s\n' "$now" | head -1)"
+    if [ -n "$latest" ]; then
+      if [ "$latest" != "$current" ]; then
+        stop_follower
+        current="$latest" files="$now"
+        printf '%s%s=== following %s ===%s\n' "$BOLD" "$MAGENTA" "$(basename "$current")" "$RST"
+        start_follower "$files" "" "$WATCH_LINES"
+      elif [ "$now" != "$files" ]; then
+        # A subagent started: keep the lines already shown, add its file from
+        # its first line.
+        kept="$(comm -12 <(printf '%s\n' "$files" | sort) <(printf '%s\n' "$now" | sort))"
+        added="$(comm -13 <(printf '%s\n' "$files" | sort) <(printf '%s\n' "$now" | sort))"
+        stop_follower
+        files="$now"
+        start_follower "$kept" "$added" 0
       fi
-    else
-      fresh="$(events "$WATCH_THINKING" | awk -F'\t' -v k="$last" '$1 > k')"
-    fi
-    if [ -n "$fresh" ]; then
-      printf '%s\n' "$fresh" | print_events $((cols - 20))
-      key="$(printf '%s\n' "$fresh" | tail -1 | cut -f1)"
-      [ -n "$key" ] && last="$key"
     fi
     sleep "$EVERY"
   done
