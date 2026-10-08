@@ -26,7 +26,7 @@ A loop is a directory (default `.loop/` at the root of the work tree) holding:
 | `PROGRESS.md` | The state: Status, the ordered **Now** list, uncommitted work to preserve, open questions, blockers, one Log line per round. | Rounds, every round. |
 | `PROMPT.md` | The prompt every round starts with. Generic: it tells the round how to read, work and end. `{{PLACEHOLDERS}}` are filled in by `loop.sh`. | Rarely changed. Project rules go in PLAN.md, not here. |
 | `INBOX.md` | Your new instructions, as dated bullets. The next round folds them into PLAN or PROGRESS and empties it. | You, any time, even mid-round (`loop.sh inbox "..."`). |
-| `CLEANUP.md` | Optional. Cleanup steps every round follows at its end, after committing its work and before updating PROGRESS (stop servers it started, delete build directories, remove stray files). Absent or empty: no cleanup. | You, at setup or any time; rounds only follow it. |
+| `CLEANUP.md` | Optional. The prompt of a short session (`CLEANUP_MODEL`, Sonnet by default) the driver runs after every round that ended with its status line: it stops processes the round left, empties TMPDIR, prunes stale build outputs, and ends with `CLEANUP: freed <N> GB, stopped <M> process(es)`, which the loop log shows as `Round N cleanup: …`. Absent: no cleanup. | You, at setup or any time. |
 | `loop.conf` | Settings (shell assignments); the environment overrides them. | You. |
 | `state/` | Logs (`loop.log`, `round-NNN.json`), lock, stop file, default scratch. Git-ignored. | `loop.sh`. |
 
@@ -55,8 +55,8 @@ When the user asks for a loop on some work:
    - **Decisions:** what is settled, dated.
    - **Final report:** what the last round writes before `ROUND: DONE`.
 4. **Write PROGRESS.md's first Now items** (the first batch), and leave the rest empty.
-   **Write CLEANUP.md** if rounds leave things behind that the next one shouldn't find
-   (servers, processes, build directories, temp files); otherwise delete it.
+   **Write CLEANUP.md** from the template: what to clean (processes, temp files, stale
+   build outputs) and what never to touch. Delete it if rounds leave nothing behind.
 5. **Adjust `loop.conf`:** model, effort, `GIT_NAME`/`GIT_EMAIL`, `SCRATCH` on a disk with
    room for builds, `ADD_DIRS` for other directories the rounds need, `EXPORT_ENV` (for
    example `CARGO_BUILD_JOBS=4` so parallel builds don't overheat the machine),
@@ -93,6 +93,7 @@ $L -d .loop stop --now        # stop now, killing the round (its files stay on d
 | `commits [-r N] [-n N] [--once]` | The work tree's commits grouped by round (from the loop log), coloured by type (feat, fix, perf, test, refactor, docs/chore), with relative ages and sizes. |
 | `tmux` | A tmux session: `watch` on the left, `follow` (log only) top right, `commits -r 3` bottom right. Reattaches if it exists. Only displays: it never starts or stops the loop. |
 | `inbox [TEXT]` | Appends a dated bullet to INBOX.md, or opens it in `$EDITOR`. |
+| `cleanup` | Runs CLEANUP.md now, for the last round (refuses while the loop runs). |
 | `prompt [N]` | Prints the prompt round N gets. |
 | `config` | Prints every setting with its effective value. |
 
@@ -121,6 +122,9 @@ Every round ends with exactly one status line, the last line of its output:
 | `ROUND: CHECKPOINT` | A checkpoint from PLAN is reached, evidence recorded. | Stops and notifies: review, then restart. |
 | `ROUND: BLOCKED <reason>` | Nothing useful can proceed without the user. | Stops and notifies. |
 | `ROUND: DONE` | The plan is complete, the final report written. | Stops and notifies. |
+
+After a round that printed its status line, the driver runs the CLEANUP.md session and logs
+its `CLEANUP:` line; a round without one keeps its leftovers for a look.
 
 The driver also stops on: the stop file, `MAX_ROUNDS` rounds in this run, `STALL_ROUNDS`
 rounds in a row without a commit, `MAX_FAILURES` failed sessions in a row, `MAX_COST`.

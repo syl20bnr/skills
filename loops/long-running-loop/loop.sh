@@ -11,7 +11,7 @@
 #   PROGRESS.md  the state: status, next actions, open questions, one log line per round
 #   PROMPT.md    the prompt every round starts with ({{PLACEHOLDERS}} are filled in)
 #   INBOX.md     your new instructions; the next round folds them into PLAN/PROGRESS
-#   CLEANUP.md   cleanup steps every round follows at its end (optional)
+#   CLEANUP.md   what a short session cleans up after each round (optional)
 # plus loop.conf (settings) and state/ (logs, lock, scratch; git-ignored).
 #
 # Usage: loop.sh [-d LOOP_DIR] COMMAND [ARGS]
@@ -27,6 +27,7 @@
 #                     the work tree's commits, grouped by round, refreshing
 #   tmux              a tmux session with watch, follow and commits in three panes
 #   inbox [TEXT]      append a dated instruction to INBOX.md (no TEXT: open $EDITOR)
+#   cleanup           run CLEANUP.md now, for the last round (not while the loop runs)
 #   prompt [N]        print the prompt round N would get
 #   config            print the effective settings
 #
@@ -120,6 +121,9 @@ MAX_COST="${MAX_COST:-}"
 LIMIT_WAIT="${LIMIT_WAIT:-1800}"
 TRANSIENT_WAIT="${TRANSIENT_WAIT:-300}"
 CLASSIFIER_WAIT="${CLASSIFIER_WAIT:-600}"
+CLEANUP_ENABLED="${CLEANUP_ENABLED:-1}"
+CLEANUP_MODEL="${CLEANUP_MODEL:-claude-sonnet-5-5}"
+CLEANUP_TURNS="${CLEANUP_TURNS:-40}"
 ADD_DIRS="${ADD_DIRS:-}"
 EXPORT_ENV="${EXPORT_ENV:-}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
@@ -179,6 +183,7 @@ colorize() {
     {
       c = rst
       if ($0 ~ /starting at/) c = bold cyan
+      else if ($0 ~ / cleanup: /) c = ($0 ~ /no CLEANUP line|exit [1-9]/) ? yellow : bold
       else if ($0 ~ /ROUND: CONTINUE/ && $0 !~ / 0 commit/) c = green
       else if ($0 ~ /ROUND: (CHECKPOINT|DONE)|Checkpoint|Done:/) c = bold green
       else if ($0 ~ /ROUND: BLOCKED|Blocked|in a row|without a commit|failed/) c = bold red
@@ -206,10 +211,10 @@ clip() {
   if [ "$FOLLOW_WIDTH" -gt 0 ] 2>/dev/null; then cut -c1-$(($1 * FOLLOW_WIDTH)); else cat; fi
 }
 
-# The prompt of round $1, placeholders filled in.
+# The prompt of round $1 (or the file $2, e.g. CLEANUP.md), placeholders filled in.
 render_prompt() {
   local p branch
-  p="$(cat "$PROMPT")"
+  p="$(cat "${2:-$PROMPT}")"
   branch="$(g rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
   p="${p//\{\{LOOP_DIR\}\}/$LOOP_DIR}"
   p="${p//\{\{WORKDIR\}\}/$WORKDIR}"
@@ -292,6 +297,30 @@ print_events() {
 
 # ---------------------------------------------------------------- run
 
+# After a round that ended with its status line, a short session follows
+# CLEANUP.md to remove what the round left behind (processes, temp files, stale
+# build outputs) and reports one `CLEANUP:` line, which goes to the loop log. A
+# round that died or was interrupted keeps its leftovers, for a look.
+cleanup_round() {
+  local n="$1" log out code cost d
+  [ "$CLEANUP_ENABLED" = 1 ] && [ -f "$CLEANUP" ] || return 0
+  log="$(printf '%s/cleanup-%03d.json' "$LOGS" "$n")"
+  local cargs=(--model "$CLEANUP_MODEL" --permission-mode "$PERMISSION_MODE"
+               --output-format json --max-turns "$CLEANUP_TURNS" --add-dir "$LOOP_DIR")
+  case "$SCRATCH" in "$WORKDIR"/*) ;; *) cargs+=(--add-dir "$SCRATCH") ;; esac
+  for d in $ADD_DIRS; do cargs+=(--add-dir "$d"); done
+  (
+    cd "$WORKDIR" || exit 1
+    exec "$CLAUDE_BIN" -p "$(render_prompt "$n" "$CLEANUP")" "${cargs[@]}" --name "$NAME cleanup $n"
+  ) > "$log" 2> "${log%.json}.stderr" < /dev/null &
+  child=$!
+  wait "$child"; code=$?; child=""
+  cost="$(jq -r '.total_cost_usd // 0' "$log" 2>/dev/null)"
+  total_cost="$(awk -v a="${total_cost:-0}" -v b="${cost:-0}" 'BEGIN { printf "%.2f", a + b }')"
+  out="$(jq -r '.result // empty' "$log" 2>/dev/null | grep -E '^CLEANUP: ' | tail -1)"
+  say "Round $n cleanup: ${out:-no CLEANUP line (exit $code), see $log}."
+}
+
 run_loop() {
   local pid
   command -v "$CLAUDE_BIN" >/dev/null || die "The claude CLI ($CLAUDE_BIN) is not on PATH."
@@ -354,6 +383,7 @@ run_loop() {
     commits="$(g rev-list --count "$before"..HEAD 2>/dev/null || echo 0)"
     status="$(printf '%s\n' "$result" | grep -E '^ROUND: ' | tail -1)"
     say "Round $n ended: exit $code, $turns turns, \$$(printf '%.2f' "${cost:-0}") (total \$$total_cost), $commits commit(s), ${status:-no status line}."
+    [ -n "$status" ] && cleanup_round "$n"
 
     # Waits that don't count as a round: usage limit, lost safety classifier
     # (auto mode), transient API errors before any work.
@@ -692,11 +722,18 @@ case "$CMD" in
     else
       "${EDITOR:-vi}" "$INBOX"
     fi ;;
+  cleanup)
+    if pid="$(running_pid)"; then die "The loop is running (pid $pid): it cleans up after each round."; fi
+    command -v jq >/dev/null || die "jq is required (brew install jq)."
+    [ -f "$CLEANUP" ] || die "No $CLEANUP."
+    n=1; while [ -e "$(printf '%s/round-%03d.json' "$LOGS" "$n")" ]; do n=$((n + 1)); done
+    child=""; CLEANUP_ENABLED=1; export TMPDIR="$SCRATCH/tmp"
+    cleanup_round "$((n - 1))" ;;
   prompt) render_prompt "${1:-N}" ;;
   config)
     for v in LOOP_DIR WORKDIR NAME STATE_DIR SCRATCH CLAUDE_BIN MODEL EFFORT SUBAGENT_MODEL \
              PERMISSION_MODE MAX_ROUNDS MAX_TURNS STALL_ROUNDS MAX_FAILURES MAX_COST LIMIT_WAIT \
-             TRANSIENT_WAIT CLASSIFIER_WAIT ADD_DIRS EXPORT_ENV EXTRA_ARGS GIT_NAME GIT_EMAIL NOTIFY \
+             TRANSIENT_WAIT CLASSIFIER_WAIT CLEANUP_ENABLED CLEANUP_MODEL CLEANUP_TURNS ADD_DIRS EXPORT_ENV EXTRA_ARGS GIT_NAME GIT_EMAIL NOTIFY \
              KEEP_AWAKE TMUX_SESSION FOLLOW_LINES FOLLOW_WIDTH WATCH_LINES WATCH_THINKING \
              COMMIT_ROUNDS COMMIT_COUNT EVERY BASH_DEFAULT_TIMEOUT_MS BASH_MAX_TIMEOUT_MS PROJECT_DIR; do
       printf '%-24s %s\n' "$v" "${!v}"

@@ -57,7 +57,7 @@ the brief, the plan and the settings.
 | `PROGRESS.md` | What happened and what's next: status, the ordered **Now** list, questions, blockers, one log line per round. |
 | `PROMPT.md` | The generic prompt every round starts with; `loop.sh` fills its `{{PLACEHOLDERS}}`. |
 | `INBOX.md` | Your new instructions. The next round folds them into PLAN or PROGRESS and empties it. |
-| `CLEANUP.md` | Optional steps every round runs at its end (stop servers, delete build directories). |
+| `CLEANUP.md` | Optional. The prompt of a short cleanup session the driver runs after each round (see below). |
 | `loop.conf` | Settings: model, effort, git author, scratch directory, limits. The environment overrides them. |
 | `state/` | Logs, lock, stop file, scratch. Git-ignored. |
 
@@ -75,10 +75,31 @@ The templates for all of them are in [`templates/`](templates).
 | `follow` / `watch` | Live views: the loop log with the round's last events, or the round's full transcript in colour. |
 | `commits` | The work tree's commits grouped by round. |
 | `tmux` | `watch`, `follow` and `commits` in three panes. |
+| `cleanup` | Run the cleanup session now, for the last round (not while the loop runs). |
 | `prompt [N]` / `config` | Print round N's prompt, or the effective settings. |
 
 `-d DIR` picks the loop directory (default `./.loop`). The views only read: closing them
 never touches the loop. `loop.sh --help` prints the full usage.
+
+## Cleanup after each round
+
+Rounds leave things behind: servers and test runners they started, temp files, stale build
+outputs that fill the disk over days. When the loop directory has a `CLEANUP.md`, the
+driver runs a short session after every round that ended with its status line, with
+`CLEANUP.md` as its prompt, on a cheaper model (`CLEANUP_MODEL`, Sonnet by default). The
+round itself spends nothing on cleanup, and a round that died keeps its leftovers for a
+look.
+
+`CLEANUP.md` lists what never to touch and what to clean; the template is a starting point
+with the usual suspects. The session ends with one line, which the loop log shows:
+
+```
+[10-07 18:57] Round 45 ended: exit 0, 242 turns, $23.65 (total $23.65), 5 commit(s), ROUND: CONTINUE.
+[10-07 18:57] Round 45 cleanup: CLEANUP: freed 26 GB, stopped 0 process(es).
+```
+
+Its transcript is in `state/logs/cleanup-NNN.json` and its cost counts toward the total.
+`CLEANUP_ENABLED=0` turns it off; `CLEANUP_TURNS` caps its turns.
 
 ## How a run ends
 
