@@ -45,7 +45,12 @@ commit what is finished, record precisely what is not, and end the round.
 
 ## End
 
-Update PROGRESS.md: Status and Now in place, one Log line for this round (commits and
+Clean up: if `{{CLEANUP}}` exists, read it and follow each of its steps; if it doesn't, or
+lists nothing, skip this. Cleanup never discards uncommitted work PROGRESS says to
+preserve; a step that fails or doesn't apply is recorded in this round's Log line, not
+retried at length. Commit any tracked file the cleanup changed.
+
+Then update PROGRESS.md: Status and Now in place, one Log line for this round (commits and
 outcome), the "Uncommitted work" list exact, new questions under "Questions". Tick PLAN.md
 checklist items only in the commit that completes them. Commit. Then print a two-to-five
 line summary and, as the very last line, exactly one of:

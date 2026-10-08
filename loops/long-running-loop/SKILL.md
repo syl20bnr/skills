@@ -1,6 +1,6 @@
 ---
 name: long-running-loop
-description: Run a long, multi-session piece of work with Claude Code as a loop of fresh, bounded rounds driven by loop.sh (PLAN.md, PROGRESS.md, PROMPT.md, INBOX.md, detached runner, live and tmux views). Use when setting up such a loop for a new topic, writing its plan, starting, monitoring, steering or troubleshooting it.
+description: Run a long, multi-session piece of work with Claude Code as a loop of fresh, bounded rounds driven by loop.sh (PLAN.md, PROGRESS.md, PROMPT.md, INBOX.md, CLEANUP.md, detached runner, live and tmux views). Use when setting up such a loop for a new topic, writing its plan, starting, monitoring, steering or troubleshooting it.
 ---
 
 # Long-running loop
@@ -26,6 +26,7 @@ A loop is a directory (default `.loop/` at the root of the work tree) holding:
 | `PROGRESS.md` | The state: Status, the ordered **Now** list, uncommitted work to preserve, open questions, blockers, one Log line per round. | Rounds, every round. |
 | `PROMPT.md` | The prompt every round starts with. Generic: it tells the round how to read, work and end. `{{PLACEHOLDERS}}` are filled in by `loop.sh`. | Rarely changed. Project rules go in PLAN.md, not here. |
 | `INBOX.md` | Your new instructions, as dated bullets. The next round folds them into PLAN or PROGRESS and empties it. | You, any time, even mid-round (`loop.sh inbox "..."`). |
+| `CLEANUP.md` | Optional. Cleanup steps every round follows at its end, after committing its work and before updating PROGRESS (stop servers it started, delete build directories, remove stray files). Absent or empty: no cleanup. | You, at setup or any time; rounds only follow it. |
 | `loop.conf` | Settings (shell assignments); the environment overrides them. | You. |
 | `state/` | Logs (`loop.log`, `round-NNN.json`), lock, stop file, default scratch. Git-ignored. | `loop.sh`. |
 
@@ -54,6 +55,8 @@ When the user asks for a loop on some work:
    - **Decisions:** what is settled, dated.
    - **Final report:** what the last round writes before `ROUND: DONE`.
 4. **Write PROGRESS.md's first Now items** (the first batch), and leave the rest empty.
+   **Write CLEANUP.md** if rounds leave things behind that the next one shouldn't find
+   (servers, processes, build directories, temp files); otherwise delete it.
 5. **Adjust `loop.conf`:** model, effort, `GIT_NAME`/`GIT_EMAIL`, `SCRATCH` on a disk with
    room for builds, `ADD_DIRS` for other directories the rounds need, `EXPORT_ENV` (for
    example `CARGO_BUILD_JOBS=4` so parallel builds don't overheat the machine),
@@ -67,7 +70,7 @@ first round will see.
 ## Running and watching
 
 ```sh
-L=/path/to/skills/loops/long_running_loop/loop.sh   # or an alias
+L=/path/to/skills/loops/long-running-loop/loop.sh   # or an alias
 $L -d .loop detach            # start in the background (survives the terminal)
 $L -d .loop tmux              # watch: transcript | loop log / commits by round
 $L -d .loop status            # running or not, last rounds, cost

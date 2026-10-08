@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# long_running_loop: runs a long task as a loop of fresh Claude Code sessions.
+# long-running-loop: runs a long task as a loop of fresh Claude Code sessions.
 #
 # Each round is a new, non-interactive `claude -p` session with an empty context.
 # It reads the loop's files, does one bounded batch of work, commits, records what
 # it did and ends with a status line; then the next round starts. No session ever
 # carries a huge context, and the plan survives crashes, limits and restarts.
 #
-# A loop lives in a directory (default ./.loop) holding four files:
+# A loop lives in a directory (default ./.loop) holding five files:
 #   PLAN.md      the work to do: goal, rules, gates, checklists (evolves slowly)
 #   PROGRESS.md  the state: status, next actions, open questions, one log line per round
 #   PROMPT.md    the prompt every round starts with ({{PLACEHOLDERS}} are filled in)
 #   INBOX.md     your new instructions; the next round folds them into PLAN/PROGRESS
+#   CLEANUP.md   cleanup steps every round follows at its end (optional)
 # plus loop.conf (settings) and state/ (logs, lock, scratch; git-ignored).
 #
 # Usage: loop.sh [-d LOOP_DIR] COMMAND [ARGS]
 #
-#   init              create LOOP_DIR with the four files, loop.conf and state/
+#   init              create LOOP_DIR with the five files, loop.conf and state/
 #   run               run the loop in this terminal (Ctrl-C kills the current round)
 #   detach            run the loop in the background, detached from the terminal
 #   stop [--now]      stop after the current round (--now: kill the round too)
@@ -71,7 +72,7 @@ die() { printf '%s%s%s\n' "$RED" "$*" "$RST" >&2; exit 1; }
 if [ "$CMD" = init ]; then
   [ -d "$TEMPLATES" ] || die "Templates not found in $TEMPLATES."
   mkdir -p "$LOOP_DIR/state"
-  for f in PLAN.md PROGRESS.md PROMPT.md INBOX.md loop.conf; do
+  for f in PLAN.md PROGRESS.md PROMPT.md INBOX.md CLEANUP.md loop.conf; do
     if [ -e "$LOOP_DIR/$f" ]; then
       echo "kept     $LOOP_DIR/$f"
     else
@@ -84,8 +85,9 @@ if [ "$CMD" = init ]; then
 Next:
   1. Write PLAN.md (the goal, rules, gates and checklists) and the first "Now" items
      of PROGRESS.md. Ask Claude to draft them from your brief if you like.
-  2. Adjust loop.conf (model, effort, limits, extra directories, environment).
-  3. Commit the loop directory, then: $(basename "$SELF") -d $LOOP_DIR detach
+  2. List in CLEANUP.md what every round must clean up at its end (or delete it).
+  3. Adjust loop.conf (model, effort, limits, extra directories, environment).
+  4. Commit the loop directory, then: $(basename "$SELF") -d $LOOP_DIR detach
      and watch it with: $(basename "$SELF") -d $LOOP_DIR tmux
 EOF
   exit 0
@@ -140,6 +142,7 @@ PLAN="$LOOP_DIR/PLAN.md"
 PROGRESS="$LOOP_DIR/PROGRESS.md"
 PROMPT="$LOOP_DIR/PROMPT.md"
 INBOX="$LOOP_DIR/INBOX.md"
+CLEANUP="$LOOP_DIR/CLEANUP.md"
 LOGS="$STATE_DIR/logs"
 SUMMARY="$LOGS/loop.log"
 LOCK="$STATE_DIR/loop.lock"
@@ -215,6 +218,7 @@ render_prompt() {
   p="${p//\{\{PLAN\}\}/$PLAN}"
   p="${p//\{\{PROGRESS\}\}/$PROGRESS}"
   p="${p//\{\{INBOX\}\}/$INBOX}"
+  p="${p//\{\{CLEANUP\}\}/$CLEANUP}"
   p="${p//\{\{ROUND\}\}/$1}"
   p="${p//\{\{MAX_ROUNDS\}\}/$MAX_ROUNDS}"
   p="${p//\{\{BRANCH\}\}/$branch}"

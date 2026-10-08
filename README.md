@@ -15,9 +15,9 @@ skills/
 
 ## Skills
 
-| Category | Skill                                                   | What it does                                                                                                                                                                                  |
-|----------|---------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `loops`  | [`long_running_loop`](loops/long_running_loop/SKILL.md) | Runs days-long work as a loop of fresh Claude Code rounds driven by `loop.sh`: PLAN / PROGRESS / PROMPT / INBOX files, detached runner, live and tmux views, waits on limits and API hiccups. |
+| Category | Skill                                                   | What it does                                                                                                                                                                                            |
+|----------|---------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `loops`  | [`long-running-loop`](loops/long-running-loop/SKILL.md) | Runs days-long work as a loop of fresh Claude Code rounds driven by `loop.sh`: PLAN / PROGRESS / PROMPT / INBOX / CLEANUP files, detached runner, live and tmux views, waits on limits and API hiccups. |
 
 ## Install
 
@@ -30,7 +30,7 @@ each skill there under the `name` from its front matter, so a `git pull` here up
 ```
 
 Scripts can also be used directly, without installing, for example
-`loops/long_running_loop/loop.sh -d .loop status`.
+`loops/long-running-loop/loop.sh -d .loop status`.
 
 ## Adding a skill
 
