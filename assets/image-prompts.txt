@@ -1,0 +1,37 @@
+Generated with the built-in image_gen tool.
+
+Root README: assets/hero.png
+
+Use case: stylized-concept
+Asset type: wide hero banner for the root README of a developer skills repository.
+Primary request: a polished space illustration expanding the repository's existing planet-and-orbit motif into a beautiful wide hero.
+Scene/backdrop: deep midnight navy and indigo space with a sparse, restrained star field.
+Subject: a luminous warm amber planet at the center, two elegant elliptical orbital paths in ice cyan and soft violet, a few small satellite spheres as reusable skills orbiting a shared core. One subtle arrowhead on an orbit conveys directed progress.
+Style/medium: refined 3D editorial illustration, softly textured planetary surface, precise luminous orbital lines, understated bloom, clean and sophisticated.
+Composition/framing: panoramic 3:1 landscape banner, centered balanced subject with generous breathing room on all sides, all key forms fully inside the frame. Strong legibility at GitHub README width.
+Lighting/mood: quiet, focused, exploratory; warm planet against cool space.
+Color palette: existing repo palette, #0b1023, #1e1b4b, #312e81, amber #f59e0b, pale cyan #7dd3fc and violet #a78bfa.
+Constraints: image only, no words, no typography, no logos, no watermark, no border, no busy nebula clouds, no interface panels. This is a finished illustration rather than a diagram.
+
+long-running-loop README: loops/long-running-loop/assets/hero.png
+
+Use case: stylized-concept
+Asset type: wide hero banner for the long-running-loop developer skill README.
+Primary request: illustrate long-running coding work as a relay of fresh, bounded orbital rounds that pass durable progress forward.
+Scene/backdrop: deep midnight navy and indigo space, sparse restrained stars.
+Subject: three distinct compact orbital systems arranged across the width, linked by a single graceful glowing cyan trajectory. Each system has one warm amber checkpoint core and a clean elliptical cyan or violet orbit enclosing one small floating dark glass code tile. Code tiles bear only simple luminous angle-bracket and slash glyphs, no words. A few tiny amber beads along the connecting trajectory represent saved commits. The visual reads as repeated focused rounds and steady forward progress, with a small directional arrow near the end of the trajectory.
+Style/medium: sophisticated softly textured 3D editorial space illustration, rich planetary amber surfaces, delicate luminous cyan and violet orbital lines, understated bloom, dark glass code tiles with clean edges.
+Composition/framing: panoramic 3:1 landscape banner, all three systems balanced in one continuous scene, generous breathing room, key shapes legible at GitHub README width. Connected flow left to right, no panels or separate frames.
+Lighting/mood: calm persistence and precision, warm checkpoint cores against cool space.
+Color palette: existing repo palette #0b1023, #1e1b4b, #312e81, amber #f59e0b, pale cyan #7dd3fc, violet #a78bfa.
+Constraints: image only, no words, no typography other than the simple code glyphs, no logos, no watermark, no labels, no border, no busy clouds, no fake terminal screenshots. Finished conceptual illustration, not a technical diagram.
+
+long-running-loop revision: more diversity (built-in image_gen edit)
+
+Use case: precise-object-edit
+Asset type: panoramic 3:1 hero banner for the long-running-loop skill.
+Input image: edit target, existing three-round orbital banner.
+Primary request: add much more visual diversity to the three orbital rounds, which currently repeat the same amber planet and code tile.
+Make the left round a rocky amber terrestrial planet with visible craters and a floating dark glass code-bracket tile. Make the middle round a larger violet and lavender gas giant with sweeping atmospheric bands, a thin tilted physical ring, two tiny icy moons, and a floating glass tile with a simple branching git graph glyph. Make the right round a smaller turquoise and pale cyan ice planet with crystalline cracks and a floating glass tile containing one clean checkmark. Give each orbit a distinct tilt and size; use an asymmetric but balanced composition. Keep the checkpoint beads warm amber so the shared progress thread remains obvious.
+Preserve the existing deep navy space backdrop, refined 3D editorial rendering, luminous cyan connecting trajectory, small final directional arrow, warm/cool lighting, panoramic format, and overall left-to-right progression. All important subjects fully within frame, clear at README width.
+Constraints: three visibly different planets and three different task symbols; no duplicate amber planets or repeated code glyphs. No words, labels, logos, watermark, borders, fake UI screenshots, or extra panels.
