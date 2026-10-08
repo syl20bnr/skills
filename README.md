@@ -15,9 +15,9 @@ skills/
 
 ## Skills
 
-| Category | Skill | What it does |
-|---|---|---|
-| `loops` | [`long_running_loop`](loops/long_running_loop/SKILL.md) | Runs days-long work as a loop of fresh Claude Code rounds driven by `loop.sh`: PLAN / PROGRESS / PROMPT / INBOX files, detached runner, live and tmux views, waits on limits and API hiccups. |
+| Category | Skill                                                   | What it does                                                                                                                                                                                  |
+|----------|---------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `loops`  | [`long_running_loop`](loops/long_running_loop/SKILL.md) | Runs days-long work as a loop of fresh Claude Code rounds driven by `loop.sh`: PLAN / PROGRESS / PROMPT / INBOX files, detached runner, live and tmux views, waits on limits and API hiccups. |
 
 ## Install
 
