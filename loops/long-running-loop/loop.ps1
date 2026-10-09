@@ -810,6 +810,9 @@ function Open-Panes {
     @(';', 'split-pane', '-V', '-s', '0.45', '-d', $WORKDIR) + (& $view @('follow', '--log')) +
     @(';', 'split-pane', '-H', '-s', '0.5', '-d', $WORKDIR) + (& $view @('commits', '-r', "$COMMIT_ROUNDS")) +
     @(';', 'move-focus', 'first')
+  # The panes get this process's environment, NO_COLOR included when the host set it
+  # (Claude Code does): the panes are terminals, so colour them unless COLOR=never.
+  if ($COLOR -ne 'never') { Remove-Item Env:NO_COLOR -ErrorAction SilentlyContinue }
   & wt.exe @wtArgs
 }
 
