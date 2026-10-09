@@ -596,33 +596,40 @@ watch_view() {
 # One line per commit of a range: hash, age, time, size, subject coloured by type.
 commit_lines() {
   local count="$1"; shift
-  g log --no-merges -n "$count" --date=format:'%a %H:%M' \
-    --format=$'\x1e%h\x1f%ar\x1f%ad\x1f%s' --shortstat "$@" 2>/dev/null |
-  awk -v RS=$'\x1e' -v FS=$'\x1f' -v rst="$RST" -v dim="$DIM" -v red="$RED" \
-      -v green="$GREEN" -v yellow="$YELLOW" -v blue="$BLUE" -v magenta="$MAGENTA" -v cyan="$CYAN" '
-    NF < 4 { next }
+  g log --no-merges --reverse -n "$count" \
+    --format=$'\x1e%h\x1f%ct\x1f%s' --shortstat "$@" 2>/dev/null |
+  awk -v RS=$'\x1e' -v FS=$'\x1f' -v now="$(date +%s)" -v rst="$RST" -v red="$RED" \
+      -v green="$GREEN" -v yellow="$YELLOW" -v blue="$BLUE" \
+      -v gray="${RST:+$'\033[90m'}" -v white="${RST:+$'\033[37m'}" '
+    # 1234 -> 1.2k, 23456 -> 23k
+    function short(n) {
+      if (n < 1000) return n ""
+      if (n < 10000) return sprintf("%.1fk", n / 1000)
+      return sprintf("%dk", n / 1000)
+    }
+    function ago(s) {
+      if (s < 60) return "just now"
+      if (s < 3600) return int(s / 60) "m ago"
+      if (s < 86400) return int(s / 3600) "h ago"
+      return int(s / 86400) "d ago"
+    }
+    NF < 3 { next }
     {
-      split($4, rest, "\n"); subject = rest[1]
+      split($3, rest, "\n"); subject = rest[1]
       files = 0; ins = 0; del = 0
       if (match($0, /[0-9]+ files? changed/)) files = substr($0, RSTART, RLENGTH) + 0
       if (match($0, /[0-9]+ insertions?/)) ins = substr($0, RSTART, RLENGTH) + 0
       if (match($0, /[0-9]+ deletions?/)) del = substr($0, RSTART, RLENGTH) + 0
-      type = subject; sub(/[(:!].*/, "", type)
-      c = rst
-      if (type == "feat") c = green
-      else if (type == "fix") c = red
-      else if (type == "perf") c = cyan
-      else if (type == "test") c = yellow
-      else if (type == "refactor") c = magenta
-      else if (type == "docs" || type == "chore" || type == "style") c = dim
-      age = $2; sub(/ ago$/, "", age)
-      printf "  %s%s%s %s%-14s%s %s%s%s %s%3d f %+6d %-6s%s %s%s%s\n", yellow, $1, rst, blue, age, rst, \
-        dim, $3, rst, dim, files, ins, "-" del, rst, c, subject, rst
+      # <sha> <age> (<files>/<added>/<removed>) <message>
+      printf "  %s%s%s %s%s%s (%s%s%s/%s%s%s/%s%s%s) %s%s%s\n", yellow, $1, rst, blue, ago(now - $2), rst, \
+        gray, files "f", rst, green, "+" short(ins), rst, red, "-" short(del), rst, white, subject, rst
     }'
 }
 
+# Oldest first, so the newest commits are at the bottom, where the eye (and a short
+# pane) ends up.
 commits_frame() {
-  local rounds="$1" count="$2" starts total shown upper n start out label oldest
+  local rounds="$1" count="$2" starts total shown upper n start out label oldest body block
   printf '%s%s  %s  HEAD %s  %s uncommitted%s\n' "$BOLD" "$(date '+%H:%M:%S')" \
     "$(g rev-parse --abbrev-ref HEAD 2>/dev/null)" "$(g log -1 --format='%h %ar' 2>/dev/null)" \
     "$(g status --porcelain 2>/dev/null | wc -l | tr -d ' ')" "$RST"
@@ -631,22 +638,29 @@ commits_frame() {
             awk '{ last[$1] = $2 } END { for (n in last) print n, last[n] }' | sort -n)"
   if [ -z "$starts" ]; then commit_lines "$count" HEAD; return; fi
   total="$(echo "$starts" | wc -l | tr -d ' ')"
-  upper=HEAD shown=0
+  # Walk the rounds newest first (each one ends where the next starts), stacking
+  # each block above the previous ones.
+  upper=HEAD shown=0 body=""
   while read -r n start; do
     [ "$rounds" -gt 0 ] && [ "$shown" -ge "$rounds" ] && break
     shown=$((shown + 1))
     out="$(commit_lines "$count" "$start..$upper")"
     label="round $n"; [ "$upper" = HEAD ] && label="round $n (latest)"
-    printf '%s── %s, from %s ──%s\n' "$MAGENTA" "$label" "$start" "$RST"
-    if [ -n "$out" ]; then printf '%s\n' "$out"; else printf '  %s(no commit)%s\n' "$DIM" "$RST"; fi
+    block="$(printf '%s── %s, from %s ──%s' "$MAGENTA" "$label" "$start" "$RST")"
+    if [ -n "$out" ]; then block="$block"$'\n'"$out"; else block="$block"$'\n'"$(printf '  %s(no commit)%s' "$DIM" "$RST")"; fi
+    body="$block${body:+$'\n'}$body"
     upper="$start"
   done <<EOF
 $(echo "$starts" | sort -rn)
 EOF
-  [ "$rounds" -gt 0 ] && [ "$rounds" -lt "$total" ] && return
-  oldest="$(echo "$starts" | head -1 | cut -d' ' -f2)"
-  printf '%s── before the loop ──%s\n' "$MAGENTA" "$RST"
-  commit_lines 12 "$oldest"
+  if [ "$rounds" -eq 0 ] || [ "$rounds" -ge "$total" ]; then
+    oldest="$(echo "$starts" | head -1 | cut -d' ' -f2)"
+    block="$(printf '%s── before the loop ──%s' "$MAGENTA" "$RST")"
+    out="$(commit_lines 12 "$oldest")"
+    [ -n "$out" ] && block="$block"$'\n'"$out"
+    body="$block"$'\n'"$body"
+  fi
+  printf '%s\n' "$body"
 }
 
 commits_view() {
