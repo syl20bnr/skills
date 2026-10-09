@@ -31,6 +31,11 @@ bash 3.2+ (macOS's is fine), git, [jq](https://jqlang.github.io/jq/) and the `cl
 tmux for the `tmux` view. On macOS the loop sends notifications and keeps the machine awake
 while it runs.
 
+On Windows, use `loop.ps1` instead: PowerShell 7+, git and the `claude` CLI, nothing else
+(no bash, jq or tmux). It takes the same commands and reads the same loop directory, keeps
+the machine awake while it runs, sends notifications when the BurntToast module is
+installed, and `panes` opens the three views in a Windows Terminal tab.
+
 ## Quick start
 
 From the root of the git work tree the rounds will work in:
@@ -44,6 +49,15 @@ $L init           # creates .loop/ from the templates
 $L prompt 1       # read exactly what the first round will see
 $L detach         # start in the background (survives the terminal)
 $L tmux           # watch it
+```
+
+On Windows, the same from PowerShell:
+
+```powershell
+Set-Alias loop C:\path\to\skills\loops\long-running-loop\loop.ps1   # or in $PROFILE
+
+loop init; loop prompt 1; loop detach
+loop panes        # watch, follow and commits in a Windows Terminal tab
 ```
 
 With the skill installed, asking Claude "set up a long-running loop for …" walks through

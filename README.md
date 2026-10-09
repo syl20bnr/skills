@@ -29,6 +29,16 @@ cd skills
 ./install.sh --dry-run  # show what it would do
 ```
 
+On Windows, from PowerShell 7, `install.ps1` does the same with directory junctions (no
+admin rights needed):
+
+```powershell
+git clone https://github.com/syl20bnr/skills.git
+cd skills
+.\install.ps1            # link every skill
+.\install.ps1 -DryRun    # show what it would do
+```
+
 Each skill is linked under the `name` from its front matter, so a `git pull` updates them in
 place. Run `./install.sh` again after adding, renaming or moving a skill. Set
 `CLAUDE_SKILLS_DIR` to install somewhere other than `~/.claude/skills`.
@@ -47,6 +57,7 @@ Scripts work without installing too, for example
 ```
 skills/
 ├── install.sh            # links every skill into ~/.claude/skills
+├── install.ps1           # the same on Windows
 ├── assets/               # images for this README
 └── <category>/
     └── <skill>/

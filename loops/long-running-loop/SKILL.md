@@ -85,6 +85,12 @@ $L -d .loop stop --now        # stop now, killing the round (its files stay on d
 
 `-d` defaults to `./.loop`, so from the work tree's root `loop.sh detach` is enough.
 
+**On Windows, use `loop.ps1`** (PowerShell 7+, next to `loop.sh`) with the same arguments:
+`loop.ps1 -d .loop detach`. It needs only git and the `claude` CLI. `detach` starts the loop
+in a hidden window of its own, so closing the terminal doesn't stop it, and `panes` (alias
+`tmux`) opens `watch`, `follow` and `commits` as panes of a Windows Terminal tab. Paths in
+`loop.conf` can be Windows paths; the file keeps its shell syntax.
+
 | Command | What it does |
 |---|---|
 | `init` | Creates the loop directory from the templates (keeps existing files). |
