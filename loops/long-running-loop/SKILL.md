@@ -89,7 +89,10 @@ $L -d .loop stop --now        # stop now, killing the round (its files stay on d
 `loop.ps1 -d .loop detach`. It needs only git and the `claude` CLI. `detach` starts the loop
 in a hidden window of its own, so closing the terminal doesn't stop it, and `panes` (alias
 `tmux`) opens `watch`, `follow` and `commits` as panes of a Windows Terminal tab. Paths in
-`loop.conf` can be Windows paths; the file keeps its shell syntax.
+`loop.conf` can be Windows paths; the file keeps its shell syntax. Output is coloured in a
+terminal unless `NO_COLOR` is set, which some hosts (Claude Code's terminal) do for every
+shell: `COLOR=always` in `loop.conf` or the environment forces colours, `COLOR=never` turns
+them off.
 
 | Command | What it does |
 |---|---|

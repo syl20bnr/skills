@@ -55,14 +55,22 @@ function Show-Usage {
 
 # ---------------------------------------------------------------- colours
 
+# COLOR=auto (the default) colours a terminal unless NO_COLOR is set; always and never
+# force it. Some hosts set NO_COLOR for every shell they start (Claude Code's own
+# terminal does): COLOR=always in loop.conf or the environment brings colours back.
 $E = [char]27
-if (-not $env:NO_COLOR -and -not [Console]::IsOutputRedirected) {
-  $RST = "$E[0m"; $BOLD = "$E[1m"; $DIM = "$E[2m"; $RED = "$E[31m"; $GREEN = "$E[32m"
-  $YELLOW = "$E[33m"; $BLUE = "$E[34m"; $MAGENTA = "$E[35m"; $CYAN = "$E[36m"
-  $GRAY = "$E[90m"; $WHITE = "$E[37m"
-} else {
-  $RST = $BOLD = $DIM = $RED = $GREEN = $YELLOW = $BLUE = $MAGENTA = $CYAN = $GRAY = $WHITE = ''
+function Set-Colours([string]$mode) {
+  $on = switch ($mode) {
+    'always' { $true } 'never' { $false }
+    default { -not [Console]::IsOutputRedirected -and ($env:FORCE_COLOR -or -not $env:NO_COLOR) }
+  }
+  $names = 'RST', 'BOLD', 'DIM', 'RED', 'GREEN', 'YELLOW', 'BLUE', 'MAGENTA', 'CYAN', 'GRAY', 'WHITE'
+  $codes = '0', '1', '2', '31', '32', '33', '34', '35', '36', '90', '37'
+  for ($k = 0; $k -lt $names.Count; $k++) {
+    Set-Variable -Scope Script -Name $names[$k] -Value $(if ($on) { "$E[$($codes[$k])m" } else { '' })
+  }
 }
+Set-Colours $env:COLOR
 function Die([string]$msg) { [Console]::Error.WriteLine("$RED$msg$RST"); exit 1 }
 function Out-Line([string]$s) { [Console]::Out.WriteLine($s) }
 
@@ -153,6 +161,9 @@ function Setting([string]$name, [string]$default = '') {
   if ($null -eq $v) { $v = $CONF[$name] }
   if ([string]::IsNullOrEmpty($v)) { $default } else { $v }
 }
+
+$COLOR = Setting COLOR 'auto'
+Set-Colours $COLOR
 
 $WORKDIR = Setting WORKDIR
 if (-not $WORKDIR) {
@@ -861,7 +872,7 @@ switch ($CMD) {
     foreach ($v in 'LOOP_DIR', 'WORKDIR', 'NAME', 'STATE_DIR', 'SCRATCH', 'CLAUDE_BIN', 'MODEL', 'EFFORT', 'SUBAGENT_MODEL',
       'PERMISSION_MODE', 'MAX_ROUNDS', 'MAX_TURNS', 'STALL_ROUNDS', 'MAX_FAILURES', 'MAX_COST', 'LIMIT_WAIT',
       'TRANSIENT_WAIT', 'CLASSIFIER_WAIT', 'CLEANUP_ENABLED', 'CLEANUP_MODEL', 'CLEANUP_TURNS', 'ADD_DIRS', 'EXPORT_ENV',
-      'EXTRA_ARGS', 'GIT_NAME', 'GIT_EMAIL', 'NOTIFY', 'KEEP_AWAKE', 'FOLLOW_LINES', 'FOLLOW_WIDTH', 'WATCH_LINES',
+      'EXTRA_ARGS', 'GIT_NAME', 'GIT_EMAIL', 'NOTIFY', 'KEEP_AWAKE', 'COLOR', 'FOLLOW_LINES', 'FOLLOW_WIDTH', 'WATCH_LINES',
       'WATCH_THINKING', 'COMMIT_ROUNDS', 'COMMIT_COUNT', 'EVERY', 'BASH_DEFAULT_TIMEOUT_MS', 'BASH_MAX_TIMEOUT_MS', 'PROJECT_DIR') {
       Out-Line ('{0,-24} {1}' -f $v, (Get-Variable -Name $v -ValueOnly))
     }
