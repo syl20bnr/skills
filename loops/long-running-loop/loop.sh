@@ -6,7 +6,8 @@
 # it did and ends with a status line; then the next round starts. No session ever
 # carries a huge context, and the plan survives crashes, limits and restarts.
 #
-# A loop lives in a directory (default ./.loop) holding five files:
+# A loop lives in a directory (default ./.loop) holding six files:
+#   MEMORY.md    the few fundamental concepts every round must never forget (rarely changes)
 #   PLAN.md      the work to do: goal, rules, gates, checklists (evolves slowly)
 #   PROGRESS.md  the state: status, next actions, open questions, one log line per round
 #   PROMPT.md    the prompt every round starts with ({{PLACEHOLDERS}} are filled in)
@@ -16,7 +17,7 @@
 #
 # Usage: loop.sh [-d LOOP_DIR] COMMAND [ARGS]
 #
-#   init              create LOOP_DIR with the five files, loop.conf and state/
+#   init              create LOOP_DIR with the six files, loop.conf and state/
 #   run               run the loop in this terminal (Ctrl-C kills the current round)
 #   detach            run the loop in the background, detached from the terminal
 #   stop [--now]      stop after the current round (--now: kill the round too)
@@ -73,7 +74,7 @@ die() { printf '%s%s%s\n' "$RED" "$*" "$RST" >&2; exit 1; }
 if [ "$CMD" = init ]; then
   [ -d "$TEMPLATES" ] || die "Templates not found in $TEMPLATES."
   mkdir -p "$LOOP_DIR/state"
-  for f in PLAN.md PROGRESS.md PROMPT.md INBOX.md CLEANUP.md loop.conf; do
+  for f in MEMORY.md PLAN.md PROGRESS.md PROMPT.md INBOX.md CLEANUP.md loop.conf; do
     if [ -e "$LOOP_DIR/$f" ]; then
       echo "kept     $LOOP_DIR/$f"
     else
@@ -84,6 +85,8 @@ if [ "$CMD" = init ]; then
   cat <<EOF
 
 Next:
+  0. Write in MEMORY.md only the few fundamental concepts no round may ever forget
+     (or leave it empty); everything else goes in PLAN.md.
   1. Write PLAN.md (the goal, rules, gates and checklists) and the first "Now" items
      of PROGRESS.md. Ask Claude to draft them from your brief if you like.
   2. List in CLEANUP.md what every round must clean up at its end (or delete it).
@@ -142,6 +145,7 @@ EVERY="${EVERY:-2}"
 BASH_DEFAULT_TIMEOUT_MS="${BASH_DEFAULT_TIMEOUT_MS:-3600000}"
 BASH_MAX_TIMEOUT_MS="${BASH_MAX_TIMEOUT_MS:-7200000}"
 
+MEMORY="$LOOP_DIR/MEMORY.md"
 PLAN="$LOOP_DIR/PLAN.md"
 PROGRESS="$LOOP_DIR/PROGRESS.md"
 PROMPT="$LOOP_DIR/PROMPT.md"
@@ -220,6 +224,7 @@ render_prompt() {
   p="${p//\{\{WORKDIR\}\}/$WORKDIR}"
   p="${p//\{\{STATE_DIR\}\}/$STATE_DIR}"
   p="${p//\{\{SCRATCH\}\}/$SCRATCH}"
+  p="${p//\{\{MEMORY\}\}/$MEMORY}"
   p="${p//\{\{PLAN\}\}/$PLAN}"
   p="${p//\{\{PROGRESS\}\}/$PROGRESS}"
   p="${p//\{\{INBOX\}\}/$INBOX}"

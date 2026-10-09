@@ -53,6 +53,7 @@ the brief, the plan and the settings.
 
 | File | Holds |
 |---|---|
+| `MEMORY.md` | The few fundamental concepts no round may ever forget; every round reads it first. Strictly reserved for fundamentals, written by you only. |
 | `PLAN.md` | What to do: goal, context, rules, gates, tracks of checklist items with IDs, decisions, the final report. |
 | `PROGRESS.md` | What happened and what's next: status, the ordered **Now** list, questions, blockers, one log line per round. |
 | `PROMPT.md` | The generic prompt every round starts with; `loop.sh` fills its `{{PLACEHOLDERS}}`. |

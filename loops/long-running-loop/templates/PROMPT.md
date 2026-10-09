@@ -6,12 +6,17 @@ decide, record, continue.
 
 ## Read first (and nothing else up front)
 
+0. `{{MEMORY}}`, if it exists: the few concepts no round may ever forget. Follow them over
+   anything else you read this round; if PLAN, PROGRESS or the inbox contradicts one, keep
+   to MEMORY.md and record the conflict under "Questions". Never edit it unless an inbox item
+   from the user says to remember (or forget) something there.
 1. `{{PLAN}}`: the plan. Goal, rules, gates, decisions and checklists. It is the
    reference for what to do and how; follow its rules as if they were written here.
 2. `{{PROGRESS}}`: the state, entirely. Its **Now** section is your plan for this round.
 3. `{{INBOX}}`: new instructions from the user since the last round, if any. Fold each one
    into PLAN.md (goal, rules, decisions, checklist items) or PROGRESS.md (Now, at the
-   right priority), then empty the inbox (keep its header). Commit these together.
+   right priority), or into MEMORY.md only when the item explicitly asks to remember a
+   fundamental concept there, then empty the inbox (keep its header). Commit these together.
 
 Open other files only when PLAN or PROGRESS points to them and you need them. Grep, read
 in slices, reduce logs to their failures: context is the budget of a round.

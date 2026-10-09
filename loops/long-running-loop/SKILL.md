@@ -1,6 +1,6 @@
 ---
 name: long-running-loop
-description: Run a long, multi-session piece of work with Claude Code as a loop of fresh, bounded rounds driven by loop.sh (PLAN.md, PROGRESS.md, PROMPT.md, INBOX.md, CLEANUP.md, detached runner, live and tmux views). Use when setting up such a loop for a new topic, writing its plan, starting, monitoring, steering or troubleshooting it.
+description: Run a long, multi-session piece of work with Claude Code as a loop of fresh, bounded rounds driven by loop.sh (MEMORY.md, PLAN.md, PROGRESS.md, PROMPT.md, INBOX.md, CLEANUP.md, detached runner, live and tmux views). Use when setting up such a loop for a new topic, writing its plan, starting, monitoring, steering or troubleshooting it.
 ---
 
 # Long-running loop
@@ -22,6 +22,7 @@ A loop is a directory (default `.loop/` at the root of the work tree) holding:
 
 | File | Holds | Who writes it |
 |---|---|---|
+| `MEMORY.md` | The few fundamental concepts no round may ever forget (where code belongs, what must never happen, how the work is judged). Every round reads it first and follows it over everything else. Strictly reserved for fundamentals: no tasks, steps, findings or paths; a handful of short entries at most. | You only (directly, or an inbox item that says "remember"); rounds never edit it on their own. |
 | `PLAN.md` | The plan only: goal, context, rules, gates, tracks of checklist items with IDs, decisions, the final report's contents. | You (or Claude, from your brief) at setup; rounds when the plan changes (an inbox instruction, a decision) and to tick items. |
 | `PROGRESS.md` | The state: Status, the ordered **Now** list, uncommitted work to preserve, open questions, blockers, one Log line per round. | Rounds, every round. |
 | `PROMPT.md` | The prompt every round starts with. Generic: it tells the round how to read, work and end. `{{PLACEHOLDERS}}` are filled in by `loop.sh`. | Rarely changed. Project rules go in PLAN.md, not here. |
@@ -30,7 +31,7 @@ A loop is a directory (default `.loop/` at the root of the work tree) holding:
 | `loop.conf` | Settings (shell assignments); the environment overrides them. | You. |
 | `state/` | Logs (`loop.log`, `round-NNN.json`), lock, stop file, default scratch. Git-ignored. | `loop.sh`. |
 
-Keep the separation strict: PLAN is what to do, PROGRESS is what happened and what's
+Keep the separation strict: MEMORY is what must never be forgotten, PLAN is what to do, PROGRESS is what happened and what's
 next. A plan that accumulates logs becomes unreadable for the next round, and a progress
 file that restates the plan drifts from it.
 
@@ -54,6 +55,9 @@ When the user asks for a loop on some work:
      for parallel breadth work (delegated to subagents).
    - **Decisions:** what is settled, dated.
    - **Final report:** what the last round writes before `ROUND: DONE`.
+   Put in **MEMORY.md** only what is fundamental to every round (a principle the user
+   insists on, a line never to cross); most loops start with it empty. Don't abuse it: a
+   memory that grows into a second plan stops being read as fundamental.
 4. **Write PROGRESS.md's first Now items** (the first batch), and leave the rest empty.
    **Write CLEANUP.md** from the template: what to clean (processes, temp files, stale
    build outputs) and what never to touch. Delete it if rounds leave nothing behind.
@@ -105,6 +109,8 @@ The views only read: Ctrl-C in a view, or closing the tmux session, never touche
   files at their end and would overwrite or trip over your edit. The next round reads the
   inbox first, folds each item where it belongs (a rule or decision into PLAN, an action
   into PROGRESS's Now at the stated priority) and empties it.
+- **Make something unforgettable** with an inbox item that says to remember it in MEMORY.md,
+  or edit MEMORY.md between rounds. Reserve it for fundamental concepts only.
 - **Give priorities explicitly** in the inbox ("top priority, before anything else", "next
   Track B batch").
 - **Answer questions** the rounds leave under "Questions" in PROGRESS through the inbox; a
